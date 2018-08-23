@@ -90,11 +90,11 @@ contract FulcrumToken is ERC20, Owned {
 
     mapping (uint256 => address) private balancesId;
     uint256 private balancesIdIndex = 0;
-    mapping (address => uint256) private balances;
+    mapping (address => uint256) public balances;
     mapping (address => mapping (address => uint256)) private allowed;
     
     constructor(address _fundsWallet, uint256 _usdPrice, uint _icoDuration) public {
-        balances[msg.sender] = HARD_CAP;
+        balances[address(this)] = HARD_CAP;
         balances[_fundsWallet] = TOKEN_TOTAL_ALLOCATION.sub(HARD_CAP);
         fundsWallet = _fundsWallet;
         tokenPrice = _usdPrice;
@@ -103,14 +103,14 @@ contract FulcrumToken is ERC20, Owned {
     }
     
     function () isIcoOpen public payable {
-        totalRaised = totalRaised.add(msg.value);
         calculateDiscount();
-        uint256 tokenAmount = msg.value.div(tokenPriceDiscount);
+        uint256 tokenAmount = msg.value.mul(10**decimals).div(tokenPriceDiscount);
         if (balances[msg.sender] == 0) {
             balancesId[balancesIdIndex] = msg.sender;
             balancesIdIndex++;
         }
         transfer(msg.sender, tokenAmount);
+        totalRaised = totalRaised.add(tokenAmount);
         fundsWallet.transfer(msg.value);
     }
 
@@ -162,8 +162,8 @@ contract FulcrumToken is ERC20, Owned {
     }
 
     function distribute() isIcoFinished isTokenLeft public {
-        uint256 tokenSold = HARD_CAP.sub(tokenSold);
         uint256 tokenLeft = balances[address(this)];
+        uint256 tokenSold = HARD_CAP.sub(tokenLeft);
         for (uint256 i = 0; i < balancesIdIndex && balances[address(this)] > 0; i++) {
             uint256 balance = balances[balancesId[i]];
             if (balance > 0 && balancesId[i] != address(this) && balancesId[i] != fundsWallet) {
@@ -216,12 +216,12 @@ contract FulcrumToken is ERC20, Owned {
     * @param _value The amount to be transferred.
     */
     function transfer(address _to, uint256 _value) public returns (bool) {
-        require(_value <= balances[msg.sender]);
+        require(_value <= balances[address(this)]);
         require(_to != address(0));
 
-        balances[msg.sender] = balances[msg.sender].sub(_value);
+        balances[address(this)] = balances[address(this)].sub(_value);
         balances[_to] = balances[_to].add(_value);
-        emit Transfer(msg.sender, _to, _value);
+        emit Transfer(address(this), _to, _value);
         return true;
     }
 
