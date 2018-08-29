@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
+  "name": "test",
+=======
   "name": "ico2",
+>>>>>>> 6859c5a231b4a33335cdad89b6f73401fd9eba5c
   "version": "1.0.0",
   "description": "",
   "main": "truffle-config.js",
