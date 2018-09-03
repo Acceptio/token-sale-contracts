@@ -12,13 +12,75 @@ require('chai')
 
 contract('Fulcrum ERC20 Token', async function(accounts) {
   describe('  Construct Fulcrum Token', async () => {
+    const tokenPriceConst = ether(0.1);
+    const icoDurationConst = duration.days(20);
+
+    let token;
+
+    beforeEach(async () => {
+      token = await Token.new(accounts[1], tokenPriceConst, icoDurationConst);
+    });
+
     it('must correctly create the token.', async () => {
       const expectedTotalSupply = ether(400000000);
-
-      const token = await Token.new(accounts[1], 0.1, 90);
+      const community = ether(250000000);
+      const hardCap = ether(150000000);
+     
       const totalSupply = await token.totalSupply();
 
       totalSupply.should.be.bignumber.equal(expectedTotalSupply);
+      const balanceCommunity = await token.balanceOf(accounts[1]);
+
+      const balanceHardCap = await token.balanceOf(token.address);
+      balanceCommunity.should.be.bignumber.equal(community);
+      balanceHardCap.should.be.bignumber.equal(hardCap);
+
+      const icoDuration = await token.icoDuration();
+      assert(icoDuration.toNumber() == icoDurationConst);
+
+      const tokenPrice = await token.tokenPrice();
+      tokenPrice.should.be.bignumber.equal(tokenPriceConst);
+    });
+
+    it('must accept eth and return FULC coin.', async () => {
+      await token.sendTransaction({from: accounts[2], value: ether(1)});
+      const balance = await token.balanceOf(accounts[2]);
+      const tokenPrice = await token.tokenPriceDiscount();
+      balance.should.be.bignumber.equal(ether(1).mul(ether(1)).dividedToIntegerBy(tokenPrice));
+    });
+
+    it('must calculate correct discount', async () => {
+      await token.sendTransaction({from: accounts[2], value: ether(1)});
+      var balance = await token.balanceOf(accounts[2]);
+      var tokenPrice = await token.tokenPrice();
+      const startTimestamp = await token.startTimestamp();
+
+      balance.should.be.bignumber.equal(ether(1).mul(ether(1)).dividedToIntegerBy(tokenPrice.mul(80).dividedToIntegerBy(100))); // 20% off
+
+      await increaseTimeTo(startTimestamp.toNumber() + duration.days(1) + duration.seconds(1));
+      await token.sendTransaction({from: accounts[3], value: ether(1)});
+      balance = await token.balanceOf(accounts[3]);
+      tokenPrice = await token.tokenPrice();
+      balance.should.be.bignumber.equal(ether(1).mul(ether(1)).dividedToIntegerBy(tokenPrice.mul(85).dividedToIntegerBy(100))); //15 % off
+
+      await increaseTimeTo(startTimestamp.toNumber() + duration.days(3) + duration.seconds(1));
+      await token.sendTransaction({from: accounts[4], value: ether(1)});
+      balance = await token.balanceOf(accounts[4]);
+      tokenPrice = await token.tokenPrice();
+      balance.should.be.bignumber.equal(ether(1).mul(ether(1)).dividedToIntegerBy(tokenPrice.mul(90).dividedToIntegerBy(100))); //10 % off
+
+      await increaseTimeTo(startTimestamp.toNumber() + duration.days(5) + duration.seconds(1));
+      await token.sendTransaction({from: accounts[5], value: ether(1)});
+      balance = await token.balanceOf(accounts[5]);
+      tokenPrice = await token.tokenPrice();
+      balance.should.be.bignumber.equal(ether(1).mul(ether(1)).dividedToIntegerBy(tokenPrice)); //0 % off
+    });
+
+    it('must correctly end ICO', async () => {
+      //TODO
+    });
+    it('must correctly distribute coins after ICO', async () => {
+      //TODO
     });
   });
 });
