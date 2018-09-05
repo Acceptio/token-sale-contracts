@@ -12,8 +12,8 @@ require('chai')
 
 contract('Fulcrum ERC20 Token', async function(accounts) {
   describe('  Construct Fulcrum Token', async () => {
-    const tokenPriceConst = ether(0.1);
-    const icoDurationConst = duration.days(20);
+    const tokenPriceConst = ether(0.000001);
+    const icoDurationConst = duration.days(3);
 
     let token;
 
@@ -50,37 +50,68 @@ contract('Fulcrum ERC20 Token', async function(accounts) {
     });
 
     it('must calculate correct discount', async () => {
-      await token.sendTransaction({from: accounts[2], value: ether(1)});
+      await token.sendTransaction({from: accounts[2], value: ether(0.1)});
       var balance = await token.balanceOf(accounts[2]);
       var tokenPrice = await token.tokenPrice();
       const startTimestamp = await token.startTimestamp();
 
-      balance.should.be.bignumber.equal(ether(1).mul(ether(1)).dividedToIntegerBy(tokenPrice.mul(80).dividedToIntegerBy(100))); // 20% off
+      balance.should.be.bignumber.equal(ether(0.1).mul(ether(1)).dividedToIntegerBy(tokenPrice.mul(80).dividedToIntegerBy(100))); // 20% off
 
       await increaseTimeTo(startTimestamp.toNumber() + duration.days(1) + duration.seconds(1));
-      await token.sendTransaction({from: accounts[3], value: ether(1)});
+      await token.sendTransaction({from: accounts[3], value: ether(0.1)});
       balance = await token.balanceOf(accounts[3]);
       tokenPrice = await token.tokenPrice();
-      balance.should.be.bignumber.equal(ether(1).mul(ether(1)).dividedToIntegerBy(tokenPrice.mul(85).dividedToIntegerBy(100))); //15 % off
+      balance.should.be.bignumber.equal(ether(0.1).mul(ether(1)).dividedToIntegerBy(tokenPrice.mul(85).dividedToIntegerBy(100))); //15 % off
 
       await increaseTimeTo(startTimestamp.toNumber() + duration.days(3) + duration.seconds(1));
-      await token.sendTransaction({from: accounts[4], value: ether(1)});
+      await token.sendTransaction({from: accounts[4], value: ether(0.1)});
       balance = await token.balanceOf(accounts[4]);
       tokenPrice = await token.tokenPrice();
-      balance.should.be.bignumber.equal(ether(1).mul(ether(1)).dividedToIntegerBy(tokenPrice.mul(90).dividedToIntegerBy(100))); //10 % off
+      balance.should.be.bignumber.equal(ether(0.1).mul(ether(1)).dividedToIntegerBy(tokenPrice.mul(90).dividedToIntegerBy(100))); //10 % off
 
       await increaseTimeTo(startTimestamp.toNumber() + duration.days(5) + duration.seconds(1));
-      await token.sendTransaction({from: accounts[5], value: ether(1)});
+      await token.sendTransaction({from: accounts[5], value: ether(0.1)});
       balance = await token.balanceOf(accounts[5]);
       tokenPrice = await token.tokenPrice();
-      balance.should.be.bignumber.equal(ether(1).mul(ether(1)).dividedToIntegerBy(tokenPrice)); //0 % off
+      balance.should.be.bignumber.equal(ether(0.1).mul(ether(1)).dividedToIntegerBy(tokenPrice)); //0 % off
     });
 
-    it('must correctly end ICO', async () => {
-      //TODO
+    it('must correctly end ICO #1', async () => { //ICO over, but soft cap not raised.
+      const startTimestamp = await token.startTimestamp();
+      await token.sendTransaction({from: accounts[0], value: ether(1)}); //soft cap
+      await increaseTimeTo(startTimestamp.toNumber() + duration.days(3) + duration.seconds(1)); 
+      await token.sendTransaction({from: accounts[0], value: ether(1)}).should.be.rejectedWith(EVMRevert);
+    });
+    it('must correctly end ICO #2', async () => { //soft cap reached but ICO is not over
+      const startTimestamp = await token.startTimestamp();
+      await token.sendTransaction({from: accounts[2], value: ether(1)}); //soft cap
+      await token.sendTransaction({from: accounts[2], value: ether(1)});//no revert
+      await increaseTimeTo(startTimestamp.toNumber() + duration.days(3) + duration.seconds(1)); //ICO end
+      await token.sendTransaction({from: accounts[2], value: ether(1)}).should.be.rejectedWith(EVMRevert);
+    });
+    it('must correctly end ICO #3', async () => { //hard cap reached
+      await token.sendTransaction({from: accounts[2], value: ether(90)});
+      await token.sendTransaction({from: accounts[3], value: ether(90)}).should.be.rejectedWith(EVMRevert); //can't buy more
+      await token.sendTransaction({from: accounts[3], value: ether(30)});
+      await token.sendTransaction({from: accounts[3], value: ether(1)}).should.be.rejectedWith(EVMRevert); //ICO end
     });
     it('must correctly distribute coins after ICO', async () => {
-      //TODO
+      const startTimestamp = await token.startTimestamp();
+      await token.sendTransaction({from: accounts[2], value: ether(1)}); //soft cap
+      await token.sendTransaction({from: accounts[3], value: ether(2)}); 
+      await token.sendTransaction({from: accounts[4], value: ether(2)});
+      await increaseTimeTo(startTimestamp.toNumber() + duration.days(4) + duration.seconds(1));//ICO end
+      const tokenLeft = await token.balanceOf(token.address);
+      var balance2 = await token.balanceOf(accounts[2]);
+      var balance3 = await token.balanceOf(accounts[3]);
+      var balance4 = await token.balanceOf(accounts[4]);
+      await token.distribute();
+      await token.distribute().should.be.rejectedWith(EVMRevert); //deny double distribute
+      
+      (await token.balanceOf(accounts[2])).should.be.bignumber.equal(balance2.add(tokenLeft.mul(20).dividedToIntegerBy(100)));
+      (await token.balanceOf(accounts[3])).should.be.bignumber.equal(balance3.add(tokenLeft.mul(40).dividedToIntegerBy(100)));
+      (await token.balanceOf(accounts[4])).should.be.bignumber.equal(balance4.add(tokenLeft.mul(40).dividedToIntegerBy(100)));
+
     });
   });
 });

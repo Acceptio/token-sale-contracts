@@ -1,6 +1,6 @@
 pragma solidity ^0.4.24;
 
-import 'openzeppelin-solidity/contracts/token/ERC20/StandardToken.sol';
+import "openzeppelin-solidity/contracts/token/ERC20/StandardToken.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/BurnableToken.sol";
 import "openzeppelin-solidity/contracts/ownership/Claimable.sol";
 import "openzeppelin-solidity/contracts/ownership/HasNoContracts.sol";
@@ -30,8 +30,6 @@ contract FulcrumToken is StandardToken, BurnableToken, Claimable, HasNoContracts
 
     mapping (uint256 => address) private balancesId;
     uint256 private balancesIdIndex = 0;
-    mapping (address => uint256) public balances;
-    mapping (address => mapping (address => uint256)) private allowed;
     
     constructor(address _fundsWallet, uint256 _usdPrice, uint _icoDuration) public {
         
@@ -45,16 +43,21 @@ contract FulcrumToken is StandardToken, BurnableToken, Claimable, HasNoContracts
         icoDuration = _icoDuration;
     }
     
-    function () isIcoOpen public payable {
+    function () isEthSend isIcoOpen public payable {
         calculateDiscount();
         uint256 tokenAmount = msg.value.mul(10**decimals).div(tokenPriceDiscount);
         if (balances[msg.sender] == 0) {
             balancesId[balancesIdIndex] = msg.sender;
             balancesIdIndex++;
         }
-        transfer(msg.sender, tokenAmount);
+        _transfer(msg.sender, tokenAmount);
         totalRaised = totalRaised.add(tokenAmount);
         fundsWallet.transfer(msg.value);
+    }
+
+    modifier isEthSend() {
+        require(msg.value > 0);
+        _;
     }
 
     modifier isIcoOpen() {
@@ -104,13 +107,21 @@ contract FulcrumToken is StandardToken, BurnableToken, Claimable, HasNoContracts
         }
     }
 
+    function _transfer(address to, uint256 tokenAmount) private {
+        require(tokenAmount <= balances[address(this)]);
+        require(to != address(0));
+        balances[address(this)] = balances[address(this)].sub(tokenAmount);
+        balances[to] = balances[to].add(tokenAmount);
+        emit Transfer(address(this), to, tokenAmount);
+    }
+
     function distribute() isIcoFinished isTokenLeft public {
         uint256 tokenLeft = balances[address(this)];
         uint256 tokenSold = HARD_CAP.sub(tokenLeft);
         for (uint256 i = 0; i < balancesIdIndex && balances[address(this)] > 0; i++) {
             uint256 balance = balances[balancesId[i]];
             if (balance > 0 && balancesId[i] != address(this) && balancesId[i] != fundsWallet) {
-                transfer(balancesId[i], tokenLeft.mul(balance).div(tokenSold));
+                _transfer(balancesId[i], tokenLeft.mul(balance).div(tokenSold));
             }
         }
     }
