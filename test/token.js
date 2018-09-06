@@ -13,7 +13,7 @@ require('chai')
 contract('Fulcrum ERC20 Token', async function(accounts) {
   describe('  Construct Fulcrum Token', async () => {
     const tokenPriceConst = ether(0.000001);
-    const icoDurationConst = duration.days(3);
+    const icoDurationConst = duration.days(30);
 
     let token;
 
@@ -43,9 +43,20 @@ contract('Fulcrum ERC20 Token', async function(accounts) {
     });
 
     it('must accept eth and return FULC coin.', async () => {
+      await token.sendTransaction({from: accounts[2], value: ether(0)}).should.be.rejectedWith(EVMRevert);
       await token.sendTransaction({from: accounts[2], value: ether(1)});
       const balance = await token.balanceOf(accounts[2]);
       const tokenPrice = await token.tokenPriceDiscount();
+      balance.should.be.bignumber.equal(ether(1).mul(ether(1)).dividedToIntegerBy(tokenPrice));
+    });
+
+    it('must correctly change FULC price.', async () => {
+      await token.setTokenPrice.sendTransaction(ether(0.000002), {from: accounts[0]});
+      await token.setTokenPrice.sendTransaction(ether(0.000002), {from: accounts[1]}).should.be.rejectedWith(EVMRevert);
+      await token.sendTransaction({from: accounts[2], value: ether(1)});
+      const balance = await token.balanceOf(accounts[2]);
+      const tokenPrice = await token.tokenPriceDiscount();
+      (await token.tokenPrice()).should.be.bignumber.equal(ether(0.000002));
       balance.should.be.bignumber.equal(ether(1).mul(ether(1)).dividedToIntegerBy(tokenPrice));
     });
 
@@ -79,14 +90,14 @@ contract('Fulcrum ERC20 Token', async function(accounts) {
     it('must correctly end ICO #1', async () => { //ICO over, but soft cap not raised.
       const startTimestamp = await token.startTimestamp();
       await token.sendTransaction({from: accounts[0], value: ether(1)}); //soft cap
-      await increaseTimeTo(startTimestamp.toNumber() + duration.days(3) + duration.seconds(1)); 
+      await increaseTimeTo(startTimestamp.toNumber() + duration.days(30) + duration.seconds(1)); 
       await token.sendTransaction({from: accounts[0], value: ether(1)}).should.be.rejectedWith(EVMRevert);
     });
     it('must correctly end ICO #2', async () => { //soft cap reached but ICO is not over
       const startTimestamp = await token.startTimestamp();
       await token.sendTransaction({from: accounts[2], value: ether(1)}); //soft cap
       await token.sendTransaction({from: accounts[2], value: ether(1)});//no revert
-      await increaseTimeTo(startTimestamp.toNumber() + duration.days(3) + duration.seconds(1)); //ICO end
+      await increaseTimeTo(startTimestamp.toNumber() + duration.days(30) + duration.seconds(1)); //ICO end
       await token.sendTransaction({from: accounts[2], value: ether(1)}).should.be.rejectedWith(EVMRevert);
     });
     it('must correctly end ICO #3', async () => { //hard cap reached
@@ -100,7 +111,7 @@ contract('Fulcrum ERC20 Token', async function(accounts) {
       await token.sendTransaction({from: accounts[2], value: ether(1)}); //soft cap
       await token.sendTransaction({from: accounts[3], value: ether(2)}); 
       await token.sendTransaction({from: accounts[4], value: ether(2)});
-      await increaseTimeTo(startTimestamp.toNumber() + duration.days(4) + duration.seconds(1));//ICO end
+      await increaseTimeTo(startTimestamp.toNumber() + duration.days(30) + duration.seconds(1));//ICO end
       const tokenLeft = await token.balanceOf(token.address);
       var balance2 = await token.balanceOf(accounts[2]);
       var balance3 = await token.balanceOf(accounts[3]);
