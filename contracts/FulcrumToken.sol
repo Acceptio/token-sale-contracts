@@ -75,35 +75,27 @@ contract FulcrumToken is StandardToken, BurnableToken, Claimable, HasNoContracts
         _;
     }
 
-    function calculateDiscount() private {
+    function calculateDiscount() public {
         if (startTimestamp + 1 days > now) {
             if (discountRate != 20) {
                 discountRate = 20;
-                updateDiscountPrice();
+                tokenPriceDiscount = tokenPrice.mul(100 - discountRate).div(uint256(100));
             }
         } else if (startTimestamp + 2 days > now) {
             if (discountRate != 15) {
                 discountRate = 15;
-                updateDiscountPrice();
+                tokenPriceDiscount = tokenPrice.mul(100 - discountRate).div(uint256(100));
             }
         } else if (startTimestamp + 4 days > now) {
             if (discountRate != 10) {
                 discountRate = 10;
-                updateDiscountPrice();
+                tokenPriceDiscount = tokenPrice.mul(100 - discountRate).div(uint256(100));
             }
         } else {
             if (discountRate != 0) {
                 discountRate = 0;
-                updateDiscountPrice();
+                tokenPriceDiscount = tokenPrice;
             }
-        }
-    }
-
-    function updateDiscountPrice() private {
-        if (discountRate > 0) {
-            tokenPriceDiscount = tokenPrice.mul(100 - discountRate).div(uint256(100));
-        } else {
-            tokenPriceDiscount = tokenPrice;
         }
     }
 

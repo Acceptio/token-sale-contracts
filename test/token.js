@@ -60,7 +60,7 @@ contract('Fulcrum ERC20 Token', async function(accounts) {
       balance.should.be.bignumber.equal(ether(1).mul(ether(1)).dividedToIntegerBy(tokenPrice));
     });
 
-    it('must calculate correct discount', async () => {
+    it('must calculate correct discount #1', async () => {
       await token.sendTransaction({from: accounts[2], value: ether(0.1)});
       var balance = await token.balanceOf(accounts[2]);
       var tokenPrice = await token.tokenPrice();
@@ -85,6 +85,29 @@ contract('Fulcrum ERC20 Token', async function(accounts) {
       balance = await token.balanceOf(accounts[5]);
       tokenPrice = await token.tokenPrice();
       balance.should.be.bignumber.equal(ether(0.1).mul(ether(1)).dividedToIntegerBy(tokenPrice)); //0 % off
+    });
+
+    it('must calculate correct discount #2', async () => {
+      var tokenPrice = await token.tokenPrice();
+      await token.calculateDiscount();
+      const startTimestamp = await token.startTimestamp();
+      var tokenPriceDiscount = await token.tokenPriceDiscount();
+      tokenPriceDiscount.should.be.bignumber.equal(tokenPrice.mul(80).dividedToIntegerBy(100)); // 20% off
+
+      await increaseTimeTo(startTimestamp.toNumber() + duration.days(1) + duration.seconds(1));
+      await token.calculateDiscount();
+      tokenPriceDiscount = await token.tokenPriceDiscount();
+      tokenPriceDiscount.should.be.bignumber.equal(tokenPrice.mul(85).dividedToIntegerBy(100)); // 15% off
+
+      await increaseTimeTo(startTimestamp.toNumber() + duration.days(3) + duration.seconds(1));
+      await token.calculateDiscount();
+      tokenPriceDiscount = await token.tokenPriceDiscount();
+      tokenPriceDiscount.should.be.bignumber.equal(tokenPrice.mul(90).dividedToIntegerBy(100)); // 10% off
+
+      await increaseTimeTo(startTimestamp.toNumber() + duration.days(5) + duration.seconds(1));
+      await token.calculateDiscount();
+      tokenPriceDiscount = await token.tokenPriceDiscount();
+      tokenPriceDiscount.should.be.bignumber.equal(tokenPrice); // 0% off
     });
 
     it('must correctly end ICO #1', async () => { //ICO over, but soft cap not raised.
